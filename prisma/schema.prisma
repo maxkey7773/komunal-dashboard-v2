@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  fullName  String
+  phone     String?
+  username  String   @unique
+  password  String   // hashed
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+
+  expenses  Expense[]
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+model Object {
+  id          String     @id @default(cuid())
+  name        String
+  type        ObjectType
+  ownerName   String?
+  ownerPhone  String?
+  address     String?
+  notes       String?
+  createdAt   DateTime   @default(now())
+
+  utilityAccounts UtilityAccount[]
+  inspectors      InspectorContact[]
+  expenses        Expense[]
+  purchases       Purchase[]
+}
+
+enum ObjectType {
+  TURAR_MULK
+  NOTURAR_MULK
+  AVTOMASHINA
+  JARIMA
+  BOSHQA
+}
+
+model ExpenseCategory {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  unit        String?
+  isUtility   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  expenses    Expense[]
+  tariffs     Tariff[]
+}
+
+model Expense {
+  id            String   @id @default(cuid())
+  objectId      String
+  categoryId    String
+  userId        String?
+  title         String?
+  amount        Decimal  @db.Decimal(14,2)
+  prepaidAmount Decimal  @db.Decimal(14,2) @default(0)
+  debtAmount    Decimal  @db.Decimal(14,2) @default(0)
+  dueDate       DateTime?
+  debtDueDate   DateTime?
+  period        PeriodType @default(ONE_TIME)
+  status        ExpenseStatus @default(DUE)
+  createdAt     DateTime @default(now())
+
+  object        Object   @relation(fields: [objectId], references: [id])
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id])
+  user          User?    @relation(fields: [userId], references: [id])
+  meterReads    MeterRead[]
+  payments      Payment[]
+}
+
+enum PeriodType {
+  WEEKLY
+  MONTHLY
+  YEARLY
+  ONE_TIME
+}
+
+enum ExpenseStatus {
+  PAID
+  PARTIAL
+  DUE
+  OVERDUE
+}
+
+model Tariff {
+  id           String   @id @default(cuid())
+  categoryId   String
+  pricePerUnit Decimal  @db.Decimal(14,4)
+  validFrom    DateTime
+  validTo      DateTime?
+
+  category     ExpenseCategory @relation(fields: [categoryId], references: [id])
+}
+
+model MeterRead {
+  id           String   @id @default(cuid())
+  expenseId    String
+  quantity     Decimal  @db.Decimal(14,3)
+  pricePerUnit Decimal  @db.Decimal(14,4)
+  totalPrice   Decimal  @db.Decimal(14,2)
+  readDate     DateTime @default(now())
+
+  expense      Expense @relation(fields: [expenseId], references: [id])
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  expenseId String
+  amount    Decimal  @db.Decimal(14,2)
+  payDate   DateTime @default(now())
+  note      String?
+
+  expense   Expense @relation(fields: [expenseId], references: [id])
+}
+
+model UtilityAccount {
+  id            String   @id @default(cuid())
+  objectId      String
+  categoryId    String
+  accountNumber String
+
+  object        Object   @relation(fields: [objectId], references: [id])
+  category      ExpenseCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([objectId, categoryId])
+}
+
+model InspectorContact {
+  id              String  @id @default(cuid())
+  objectId        String
+  categoryId      String
+  inspectorName   String
+  inspectorPhone  String
+
+  object          Object @relation(fields: [objectId], references: [id])
+  category        ExpenseCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([objectId, categoryId])
+}
+
+model Purchase {
+  id        String   @id @default(cuid())
+  objectId  String
+  name      String
+  amount    Decimal  @db.Decimal(14,2)
+  endDate   DateTime?
+  note      String?
+  receiptUrl String?
+  createdAt DateTime @default(now())
+
+  object    Object   @relation(fields: [objectId], references: [id])
+}
